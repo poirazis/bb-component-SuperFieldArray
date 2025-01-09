@@ -6,13 +6,35 @@
     "friendlyName": "Super Field - Array",
     "description": "An Array Input Field component for Budibase",
     "icon": "BracketsSquare",
-    "requiredAncestors": ["form"],
+    "context": [
+      {
+        "type": "static",
+        "scope": "global",
+        "values": [
+          {
+            "key": "value",
+            "label": "value",
+            "type": "array"
+          }
+        ]
+      }
+    ],
     "settings": [
       {
         "type": "field/array",
         "label": "Field",
-        "key": "field",
-        "required": true
+        "key": "field"
+      },
+      {
+        "type": "select",
+        "label": "Type",
+        "key": "type",
+        "defaultValue": "string",
+        "options": [
+          { "label": "String", "value": "string" },
+          { "label": "Number", "value": "number" },
+          { "label": "Date", "value": "date" }
+        ]
       },
       {
         "type": "text",

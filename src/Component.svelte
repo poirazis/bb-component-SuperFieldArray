@@ -2,10 +2,11 @@
   import CellString from "./../../bb_super_components_shared/src/lib/SuperTableCells/CellString.svelte";
   import { getContext, onDestroy } from "svelte";
   import SuperButton from "../../bb_super_components_shared/src/lib/SuperButton/SuperButton.svelte";
+  import SuperFieldLabel from "../../bb_super_components_shared/src/lib/SuperFieldLabel/SuperFieldLabel.svelte";
   import "../../bb_super_components_shared/src/lib/SuperTableCells/CellCommon.css";
   import "../../bb_super_components_shared/src/lib/SuperFieldsCommon.css";
 
-  const { styleable, enrichButtonActions } = getContext("sdk");
+  const { styleable, enrichButtonActions, Provider } = getContext("sdk");
   const component = getContext("component");
   const allContext = getContext("context");
 
@@ -52,10 +53,11 @@
 
   $: multirow = controlType != "select" && controlType != "inputSelect";
   $: formStep = formStepContext ? $formStepContext || 1 : 1;
-  $: labelPos =
-    groupLabelPosition && labelPosition == "fieldGroup"
+  $: labelPos = field
+    ? groupLabelPosition && labelPosition == "fieldGroup"
       ? groupLabelPosition
-      : labelPosition;
+      : labelPosition
+    : false;
 
   $: formField = formApi?.registerField(
     field,
@@ -90,11 +92,12 @@
     debounce: false,
     placeholder,
     defaultValue,
-    error: fieldState.error,
+    error: fieldState?.error,
     role,
     icon,
     showDirty,
     reorderOnly,
+    clearIcon: false,
   };
 
   onDestroy(() => {
@@ -104,11 +107,16 @@
 
   const handleChange = (e, index) => {
     _instances[index] = e.detail;
-    let validInstances = _instances.filter((x) => x);
+    _instances = _instances.filter((x) => x);
 
-    onChange?.({ value: validInstances });
-    fieldApi?.setValue([...validInstances]);
+    onChange?.({ value: _instances });
+    fieldApi?.setValue(_instances);
 
+    if (!_instances.length) _instances.push("");
+  };
+
+  const validateInstances = () => {
+    _instances = _instances.filter((x) => x);
     if (!_instances.length) _instances.push("");
   };
 </script>
@@ -117,83 +125,74 @@
 <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div use:styleable={$component.styles}>
-  <div
-    class="superField"
-    class:left-label={labelPos == "left"}
-    class:multirow={controlType != "select"}
-    style:--label-width={labelPos == "left"
-      ? labelWidth
-        ? labelWidth
-        : "6rem"
-      : "auto"}
-  >
-    {#if labelPos}
-      <label for="superCell" class="superlabel" class:left={labelPos == "left"}>
-        {#if helpText && labelPos != "left"}
-          <!-- svelte-ignore a11y-no-static-element-interactions -->
-          <i
-            class={"ri-question-line"}
-            on:mouseenter={() => (showHelp = true)}
-            on:mouseleave={() => (showHelp = false)}
+  <Provider data={{ value: _instances.filter((x) => x) }} />
+  <div class="superField" class:left-label={labelPos == "left"}>
+    <SuperFieldLabel
+      {labelPos}
+      {labelWidth}
+      {label}
+      {helpText}
+      error={fieldState?.error}
+    />
+    <div class="cells" class:left-label={labelPos == "left"}>
+      {#each _instances as _, idx}
+        <div class="inline-cells" class:multirow>
+          <CellString
+            {cellOptions}
+            {fieldSchema}
+            value={_instances[idx]}
+            {autofocus}
+            on:change={(e) => handleChange(e, idx)}
+            on:focusout={validateInstances}
           />
-        {/if}
-        <span>
-          {#if showHelp && helpText}
-            {helpText}
-          {:else}
-            {label || field}
+          <span style="align-self: center">
+            <SuperButton
+              quiet
+              size="M"
+              disabled={readonly || disabled}
+              type={idx < _instances.length - 1 ? "warning" : "cta"}
+              icon={idx < _instances.length - 1
+                ? "ri-close-line"
+                : "ri-add-line"}
+              on:click={() => {
+                if (idx < _instances.length - 1) {
+                  _instances.splice(idx, 1);
+                  _instances = [..._instances];
+                  let validInstances = _instances.filter((x) => x);
+                  fieldApi?.setValue(validInstances);
+                } else if (_instances[idx]) {
+                  _instances = [..._instances, ""];
+                }
+              }}
+            />
+          </span>
+          {#if buttons?.length && controlType != "list"}
+            <div class="inline-buttons" class:vertical={multirow}>
+              {#each buttons as { text, onClick, quiet, disabled, type, size }}
+                <SuperButton
+                  {quiet}
+                  {disabled}
+                  {size}
+                  {type}
+                  {text}
+                  on:click={enrichButtonActions(
+                    onClick,
+                    $allContext
+                  )({ value })}
+                />
+              {/each}
+            </div>
           {/if}
-        </span>
-        {#if fieldState.error}
-          <div class="error" class:left={labelPos == "left"}>
-            {fieldState.error}
-          </div>
-        {/if}
-      </label>
-    {/if}
-    {#each _instances as _, idx}
-      <div class="inline-cells" class:multirow>
-        <CellString
-          {cellOptions}
-          {fieldSchema}
-          value={_instances[idx]}
-          {autofocus}
-          on:change={(e) => handleChange(e, idx)}
-        />
-        <span style="align-self: center">
-          <SuperButton
-            quiet
-            size="S"
-            icon={idx < _instances.length - 1
-              ? "ri-delete-bin-line"
-              : "ri-add-line"}
-            on:click={() => {
-              if (idx < _instances.length - 1) {
-                _instances.splice(idx, 1);
-                _instances = [..._instances];
-                let validInstances = _instances.filter((x) => x);
-                fieldApi?.setValue([validInstances]);
-              } else if (_instances[idx]) {
-                _instances = [..._instances, ""];
-              }
-            }}
-          />
-        </span>
-        {#if buttons?.length && controlType != "list"}
-          <div class="inline-buttons" class:vertical={multirow}>
-            {#each buttons as { text, onClick, quiet, disabled, type, size }}
-              <SuperButton
-                {quiet}
-                {disabled}
-                {size}
-                {type}
-                {text}
-                on:click={enrichButtonActions(onClick, $allContext)({ value })}
-              />
-            {/each}
-          </div>
-        {/if}
-      </div>
-    {/each}
+        </div>
+      {/each}
+    </div>
   </div>
 </div>
+
+<style>
+  .cells {
+    flex: auto;
+    display: flex;
+    flex-direction: column;
+  }
+</style>
