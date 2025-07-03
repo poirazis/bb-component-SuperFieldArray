@@ -1,10 +1,10 @@
 <script>
-  import CellString from "./../../bb_super_components_shared/src/lib/SuperTableCells/CellString.svelte";
   import { getContext, onDestroy } from "svelte";
-  import SuperButton from "../../bb_super_components_shared/src/lib/SuperButton/SuperButton.svelte";
-  import SuperFieldLabel from "../../bb_super_components_shared/src/lib/SuperFieldLabel/SuperFieldLabel.svelte";
-  import "../../bb_super_components_shared/src/lib/SuperTableCells/CellCommon.css";
-  import "../../bb_super_components_shared/src/lib/SuperFieldsCommon.css";
+  import {
+    SuperButton,
+    SuperField,
+    CellString,
+  } from "@poirazis/supercomponents-shared";
 
   const { styleable, enrichButtonActions, Provider } = getContext("sdk");
   const component = getContext("component");
@@ -18,15 +18,13 @@
   const groupDisabled = getContext("field-group-disabled");
   const formApi = formContext?.formApi;
 
-  export let field;
+  export let field = "Array Field";
   export let controlType = "select";
   export let role = "formInput";
 
-  export let buttons = [];
-
   export let label;
   export let span = 6;
-  export let placeholder = "Choose Options";
+  export let placeholder;
   export let defaultValue;
   export let disabled;
   export let readonly;
@@ -76,6 +74,7 @@
   });
 
   $: value = fieldState?.value;
+  $: error = fieldState?.error;
   $: _instances = value?.length ? value : [""];
 
   $: $component.styles = {
@@ -126,17 +125,18 @@
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div use:styleable={$component.styles}>
   <Provider data={{ value: _instances.filter((x) => x) }} />
-  <div class="superField" class:left-label={labelPos == "left"}>
-    <SuperFieldLabel
-      {labelPos}
-      {labelWidth}
-      {label}
-      {helpText}
-      error={fieldState?.error}
-    />
-    <div class="cells" class:left-label={labelPos == "left"}>
+  <SuperField
+    multirow
+    {labelPos}
+    {labelWidth}
+    {field}
+    {label}
+    {error}
+    {helpText}
+  >
+    <div class="cells">
       {#each _instances as _, idx}
-        <div class="inline-cells" class:multirow>
+        <div class="row">
           <CellString
             {cellOptions}
             {fieldSchema}
@@ -166,27 +166,10 @@
               }}
             />
           </span>
-          {#if buttons?.length && controlType != "list"}
-            <div class="inline-buttons" class:vertical={multirow}>
-              {#each buttons as { text, onClick, quiet, disabled, type, size }}
-                <SuperButton
-                  {quiet}
-                  {disabled}
-                  {size}
-                  {type}
-                  {text}
-                  on:click={enrichButtonActions(
-                    onClick,
-                    $allContext
-                  )({ value })}
-                />
-              {/each}
-            </div>
-          {/if}
         </div>
       {/each}
     </div>
-  </div>
+  </SuperField>
 </div>
 
 <style>
@@ -194,5 +177,13 @@
     flex: auto;
     display: flex;
     flex-direction: column;
+    align-items: stretch;
+  }
+
+  .row {
+    flex: auto;
+    display: flex;
+    align-items: stretch;
+    gap: 8px;
   }
 </style>
