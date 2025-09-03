@@ -81,7 +81,7 @@
     ...$component.styles,
     normal: {
       ...$component.styles.normal,
-      "grid-column": span < 7 ? "span " + span : "span " + groupColumns * 6,
+      "grid-column": "span " + span,
     },
   };
 
