@@ -1,6 +1,6 @@
 {
   "name": "bb-component-SuperFieldArray",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "description": "An Array Input Component for Budibase",
   "license": "MIT",
   "svelte": "index.js",
