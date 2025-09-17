@@ -11,7 +11,9 @@
   },
   "dependencies": {
     "@crownframework/svelte-error-boundary": "^1.0.3",
-    "@poirazis/supercomponents-shared": "^1.0.11"
+    "@poirazis/supercomponents-shared": "latest",
+    "svelte-dnd-action": "^0.9.61",
+    "shortid": "^2.2.17"
   },
   "devDependencies": {
     "@budibase/backend-core": "^2.33.14",

@@ -21,20 +21,35 @@
     ],
     "settings": [
       {
-        "type": "field/array",
-        "label": "Field",
-        "key": "field"
-      },
-      {
         "type": "select",
-        "label": "Type",
-        "key": "type",
+        "label": "Data Type",
+        "key": "fieldType",
         "defaultValue": "string",
         "options": [
-          { "label": "String", "value": "string" },
-          { "label": "Number", "value": "number" },
-          { "label": "Date", "value": "date" }
+          { "label": "Stringified", "value": "string" },
+          { "label": "Array", "value": "array" }
         ]
+      },
+
+      {
+        "type": "field/string",
+        "label": "Field",
+        "key": "fieldString",
+        "resetOn": "fieldArray",
+        "dependsOn": {
+          "setting": "fieldType",
+          "value": "string"
+        }
+      },
+      {
+        "type": "field/array",
+        "label": "Field",
+        "key": "fieldArray",
+        "resetOn": "fieldString",
+        "dependsOn": {
+          "setting": "fieldType",
+          "value": "array"
+        }
       },
       {
         "type": "text",
@@ -82,22 +97,20 @@
         ]
       },
       {
+        "type": "select",
+        "label": "Reordering",
+        "key": "reorder",
+        "defaultValue": "handle",
+        "options": [
+          { "label": "Disabled", "value": "disabled" },
+          { "label": "Handle", "value": "handle" },
+          { "label": "Full", "value": "full" }
+        ]
+      },
+      {
         "type": "boolean",
         "label": "Grab Focus",
         "key": "autofocus",
-        "defaultValue": false
-      },
-      {
-        "type": "boolean",
-        "label": "Debounced",
-        "key": "debounced",
-        "defaultValue": false
-      },
-      {
-        "type": "boolean",
-        "label": "Suggestions",
-        "key": "showSuggestions",
-        "hidden": true,
         "defaultValue": false
       },
       {
@@ -106,6 +119,7 @@
         "key": "disabled",
         "defaultValue": false
       },
+
       {
         "type": "boolean",
         "label": "Read only",
@@ -123,23 +137,7 @@
         "label": "Invisible",
         "defaultValue": false
       },
-      {
-        "type": "icon",
-        "key": "icon",
-        "label": "Inline Icon"
-      },
-      {
-        "type": "buttonConfiguration",
-        "key": "buttons",
-        "nested": true,
-        "wide": true,
-        "context": [
-          {
-            "label": "value",
-            "key": "value"
-          }
-        ]
-      },
+
       {
         "tag": "style",
         "type": "select",
