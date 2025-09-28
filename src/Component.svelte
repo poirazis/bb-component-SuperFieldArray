@@ -102,7 +102,6 @@
   $: onChange?.({ value: $outputValue });
 
   $: cellComponent = CellString;
-  $: autoSpan = $cellValues.length > 4 ? 2 : $cellValues.length > 6 ? 4 : 1;
 
   $: $component.styles = {
     ...$component.styles,
