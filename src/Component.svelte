@@ -529,7 +529,7 @@
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    border: 1px solid var(--spectrum-global-color-gray-300);
+    border: 1px solid var(--spectrum-global-color-gray-200);
     background-color: var(--spectrum-global-color-gray-50);
     border-radius: 2px;
     overflow: auto;
