@@ -98,11 +98,6 @@
 
   $: cellValues.set(brain.enrichValue(value));
 
-  $: fieldApi?.setValue($outputValue);
-  $: onChange?.({ value: $outputValue });
-
-  $: cellComponent = CellString;
-
   $: $component.styles = {
     ...$component.styles,
     normal: {
@@ -184,6 +179,9 @@
         cellApi = cellApi.splice(index, 1);
         $cellValues = $cellValues.splice(index, 1);
       }
+
+      fieldApi?.setValue($outputValue);
+      onChange?.({ value: $outputValue });
     },
     validateInstances: (idx) => {
       if (!inactive) return;
@@ -245,6 +243,9 @@
       } else if (focusedRowIndex === idx) {
         focusedRowIndex = -1;
       }
+
+      fieldApi?.setValue($outputValue);
+      onChange?.({ value: $outputValue });
     },
     handleAdd: () => {
       cellApi.forEach((api) => api?.clearError());
@@ -406,7 +407,7 @@
                 </div>
               {/if}
               <svelte:component
-                this={cellComponent}
+                this={CellString}
                 bind:cellApi={cellApi[idx]}
                 {cellOptions}
                 {fieldSchema}
@@ -475,7 +476,7 @@
               }}
             >
               <svelte:component
-                this={cellComponent}
+                this={CellString}
                 bind:cellApi={cellApi[idx]}
                 {cellOptions}
                 {fieldSchema}
