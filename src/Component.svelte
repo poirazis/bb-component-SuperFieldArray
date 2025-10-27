@@ -351,13 +351,15 @@
     <div
       bind:this={cell}
       class="cell"
+      class:inEdit={$state == "edit"}
+      class:disabled={effectiveDisabled}
+      class:readonly={effectiveReadonly}
       on:focusin={state.focus}
       on:focusout={state.focusout}
     >
       {#if reorder !== "disabled" && !effectiveReadonly && !disabled}
         <div
           class="cells"
-          class:readonly={readonly || disabled}
           tabindex="-1"
           use:dndzone={{
             items: draggableItems,
@@ -525,32 +527,38 @@
     height: 100%;
     align-self: flex-start;
     overflow: auto;
+    background-color: var(--spectrum-global-color-gray-50);
+    border: 1px solid var(--spectrum-global-color-gray-300);
+    border-radius: 2px;
+    min-height: 2rem;
   }
+
+  .cell.inEdit {
+    border: 1px solid var(--spectrum-global-color-gray-300);
+  }
+
+  .cell.disabled {
+    background-color: var(--spectrum-global-color-gray-200);
+    border: 1px solid var(--spectrum-global-color-gray-200);
+  }
+
+  .cell.readonly {
+    border: 1px solid var(--spectrum-global-color-gray-200);
+  }
+
+  .cell:focus-within:not(.readonly):not(.disabled) {
+    border-color: var(--spectrum-global-color-blue-400);
+  }
+
+  .cell.readonly:focus-within {
+    border: 1px dashed var(--spectrum-global-color-blue-500) !important;
+  }
+
   .cells {
     display: flex;
     flex-direction: column;
     align-items: stretch;
-    border: 1px solid var(--spectrum-global-color-gray-200);
-    background-color: var(--spectrum-global-color-gray-50);
-    border-radius: 2px;
     overflow: auto;
-    min-height: 2rem;
-
-    &:focus-within:not(.readonly):not(.disabled) {
-      border-color: var(--spectrum-global-color-blue-400);
-    }
-
-    &:focus-within.readonly {
-      border: 1px dashed var(--spectrum-global-color-blue-400);
-    }
-
-    &.readeonly {
-      border-color: var(--spectrum-global-color-gray-200);
-    }
-    &.disabled {
-      border-color: var(--spectrum-global-color-gray-300);
-      background-color: var(--spectrum-global-color-gray-100);
-    }
   }
 
   .row {
