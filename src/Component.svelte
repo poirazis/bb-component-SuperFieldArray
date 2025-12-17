@@ -71,11 +71,10 @@
   $: effectiveDisabled = disabled || fieldState?.disabled;
 
   $: formStep = formStepContext ? $formStepContext || 1 : 1;
-  $: labelPos = field
-    ? groupLabelPosition && labelPosition == "fieldGroup"
+  $: labelPos =
+    groupLabelPosition !== undefined && labelPosition == "fieldGroup"
       ? groupLabelPosition
-      : labelPosition
-    : false;
+      : labelPosition;
 
   $: formField = formApi?.registerField(
     field,
@@ -340,7 +339,7 @@
   <Provider data={{ value: $outputValue }} />
   <SuperField
     multirow={true}
-    height={$component.styles.normal.height || "15rem"}
+    maxHeight={$component.styles.normal.height || "15rem"}
     {labelPos}
     {labelWidth}
     {field}
