@@ -1,6 +1,8 @@
 {
   "type": "component",
-  "metadata": {},
+  "metadata": {
+    "svelteMajor": 5
+  },
   "schema": {
     "name": "bb-component-SuperFieldArray",
     "friendlyName": "Super Field - Array",
@@ -26,11 +28,16 @@
         "key": "fieldType",
         "defaultValue": "string",
         "options": [
-          { "label": "Stringified", "value": "string" },
-          { "label": "Array", "value": "array" }
+          {
+            "label": "Stringified",
+            "value": "string"
+          },
+          {
+            "label": "Array",
+            "value": "array"
+          }
         ]
       },
-
       {
         "type": "field/string",
         "label": "Field",
@@ -96,9 +103,18 @@
         "key": "reorder",
         "defaultValue": "handle",
         "options": [
-          { "label": "Disabled", "value": "disabled" },
-          { "label": "Handle", "value": "handle" },
-          { "label": "Full", "value": "full" }
+          {
+            "label": "Disabled",
+            "value": "disabled"
+          },
+          {
+            "label": "Handle",
+            "value": "handle"
+          },
+          {
+            "label": "Full",
+            "value": "full"
+          }
         ]
       },
       {
@@ -107,7 +123,6 @@
         "key": "disabled",
         "defaultValue": false
       },
-
       {
         "type": "boolean",
         "label": "Read only",
@@ -119,7 +134,6 @@
           "invert": true
         }
       },
-
       {
         "tag": "style",
         "type": "select",
@@ -162,8 +176,14 @@
         "label": "Field Mode",
         "defaultValue": "formInput",
         "options": [
-          { "label": "Form Input", "value": "formInput" },
-          { "label": "Inline Input", "value": "inlineInput" }
+          {
+            "label": "Form Input",
+            "value": "formInput"
+          },
+          {
+            "label": "Inline Input",
+            "value": "inlineInput"
+          }
         ]
       },
       {
