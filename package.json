@@ -1,7 +1,7 @@
 {
   "type": "module",
   "name": "bb-component-SuperFieldArray",
-  "version": "1.1.0",
+  "version": "1.1.1",
   "description": "An Array Input Component for Budibase",
   "packageManager": "bun@1.0.0",
   "license": "MIT",
