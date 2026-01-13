@@ -476,8 +476,7 @@
                 focusedRowIndex = -1;
               }}
             >
-              <svelte:component
-                this={CellString}
+              <CellString
                 bind:cellApi={cellApi[idx]}
                 {cellOptions}
                 {fieldSchema}
