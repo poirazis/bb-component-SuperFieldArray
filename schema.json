@@ -1,6 +1,8 @@
 {
   "type": "component",
-  "metadata": {},
+  "metadata": {
+    "svelteMajor": 5
+  },
   "schema": {
     "name": "bb-component-SuperFieldArray",
     "friendlyName": "Super Field - Array",
@@ -21,20 +23,40 @@
     ],
     "settings": [
       {
-        "type": "field/array",
-        "label": "Field",
-        "key": "field"
-      },
-      {
         "type": "select",
-        "label": "Type",
-        "key": "type",
+        "label": "Data Type",
+        "key": "fieldType",
         "defaultValue": "string",
         "options": [
-          { "label": "String", "value": "string" },
-          { "label": "Number", "value": "number" },
-          { "label": "Date", "value": "date" }
+          {
+            "label": "Stringified",
+            "value": "string"
+          },
+          {
+            "label": "Array",
+            "value": "array"
+          }
         ]
+      },
+      {
+        "type": "field/string",
+        "label": "Field",
+        "key": "fieldString",
+        "resetOn": "fieldArray",
+        "dependsOn": {
+          "setting": "fieldType",
+          "value": "string"
+        }
+      },
+      {
+        "type": "field/array",
+        "label": "Field",
+        "key": "fieldArray",
+        "resetOn": "fieldString",
+        "dependsOn": {
+          "setting": "fieldType",
+          "value": "array"
+        }
       },
       {
         "type": "text",
@@ -60,12 +82,6 @@
         "key": "helpText"
       },
       {
-        "type": "text",
-        "label": "Input Mask",
-        "key": "mask",
-        "hidden": true
-      },
-      {
         "type": "validation/array",
         "label": "Validation",
         "key": "validation"
@@ -82,23 +98,24 @@
         ]
       },
       {
-        "type": "boolean",
-        "label": "Grab Focus",
-        "key": "autofocus",
-        "defaultValue": false
-      },
-      {
-        "type": "boolean",
-        "label": "Debounced",
-        "key": "debounced",
-        "defaultValue": false
-      },
-      {
-        "type": "boolean",
-        "label": "Suggestions",
-        "key": "showSuggestions",
-        "hidden": true,
-        "defaultValue": false
+        "type": "select",
+        "label": "Reordering",
+        "key": "reorder",
+        "defaultValue": "handle",
+        "options": [
+          {
+            "label": "Disabled",
+            "value": "disabled"
+          },
+          {
+            "label": "Handle",
+            "value": "handle"
+          },
+          {
+            "label": "Full",
+            "value": "full"
+          }
+        ]
       },
       {
         "type": "boolean",
@@ -116,40 +133,6 @@
           "value": true,
           "invert": true
         }
-      },
-      {
-        "type": "boolean",
-        "key": "invisible",
-        "label": "Invisible",
-        "defaultValue": false
-      },
-      {
-        "type": "icon",
-        "key": "icon",
-        "label": "Inline Icon"
-      },
-      {
-        "type": "buttonConfiguration",
-        "key": "buttons",
-        "nested": true,
-        "wide": true,
-        "context": [
-          {
-            "label": "value",
-            "key": "value"
-          }
-        ]
-      },
-      {
-        "tag": "style",
-        "type": "select",
-        "key": "role",
-        "label": "Field Mode",
-        "defaultValue": "formInput",
-        "options": [
-          { "label": "Form Input", "value": "formInput" },
-          { "label": "Inline Input", "value": "inlineInput" }
-        ]
       },
       {
         "tag": "style",
@@ -188,6 +171,23 @@
       },
       {
         "tag": "style",
+        "type": "select",
+        "key": "role",
+        "label": "Field Mode",
+        "defaultValue": "formInput",
+        "options": [
+          {
+            "label": "Form Input",
+            "value": "formInput"
+          },
+          {
+            "label": "Inline Input",
+            "value": "inlineInput"
+          }
+        ]
+      },
+      {
+        "tag": "style",
         "type": "number",
         "label": "Size",
         "key": "span",
@@ -208,6 +208,13 @@
         "type": "boolean",
         "key": "showDirty",
         "label": "Show Dirty",
+        "defaultValue": false
+      },
+      {
+        "tag": "style",
+        "type": "boolean",
+        "key": "invisible",
+        "label": "Invisible",
         "defaultValue": false
       }
     ]

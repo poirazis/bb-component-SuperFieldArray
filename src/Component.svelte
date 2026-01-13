@@ -1,15 +1,13 @@
 <script>
-  import { getContext, onDestroy } from "svelte";
-  import {
-    SuperButton,
-    SuperField,
-    CellString,
-  } from "@poirazis/supercomponents-shared";
+  import { getContext, onMount, onDestroy } from "svelte";
+  import { SuperField, CellString } from "@poirazis/supercomponents-shared";
+  import { dndzone } from "svelte-dnd-action";
+  import { generate } from "shortid";
+  import fsm from "svelte-fsm";
 
-  const { styleable, enrichButtonActions, Provider, builderStore } =
+  const { styleable, Provider, builderStore, memo, derivedMemo } =
     getContext("sdk");
   const component = getContext("component");
-  const allContext = getContext("context");
 
   const formContext = getContext("form");
   const formStepContext = getContext("form-step");
@@ -19,8 +17,10 @@
   const groupDisabled = getContext("field-group-disabled");
   const formApi = formContext?.formApi;
 
-  export let field = "Array Field";
-  export let controlType = "select";
+  export let fieldType = "string"; // string or array
+  export let field;
+  export let fieldString;
+  export let fieldArray;
   export let role = "formInput";
 
   export let label;
@@ -33,13 +33,11 @@
   export let invisible = false;
   export let onChange;
   export let helpText;
+  export let reorder = "disabled";
 
   export let icon;
   export let labelPosition = "fieldGroup";
   export let showDirty;
-  export let autofocus;
-
-  export let reorderOnly;
 
   let formField;
   let formStep;
@@ -47,22 +45,41 @@
   let fieldApi;
   let fieldSchema;
   let value;
-  let showHelp;
+  let stringify = false;
 
-  if (defaultValue) value = defaultValue.split(",");
+  let zoneType = generate();
+  let draggableItems = [];
+  let inactive = true;
+  let focusedRowIndex = -1;
+  let cell;
+  let cellApi = [];
+  let cellValues = memo([]);
 
-  $: multirow = controlType != "select" && controlType != "inputSelect";
+  let mounted = false;
+
+  $: cellValues.set(brain.enrichValue(defaultValue));
+  $: field =
+    fieldType === "string" && fieldString
+      ? fieldString
+      : fieldType == "array" && fieldArray
+        ? fieldArray
+        : field;
+
+  $: stringify = fieldType === "string";
+
+  $: effectiveReadonly = readonly || fieldState?.readonly;
+  $: effectiveDisabled = disabled || fieldState?.disabled;
+
   $: formStep = formStepContext ? $formStepContext || 1 : 1;
-  $: labelPos = field
-    ? groupLabelPosition && labelPosition == "fieldGroup"
+  $: labelPos =
+    groupLabelPosition !== undefined && labelPosition == "fieldGroup"
       ? groupLabelPosition
-      : labelPosition
-    : false;
+      : labelPosition;
 
   $: formField = formApi?.registerField(
     field,
-    "array",
-    defaultValue?.split[","],
+    fieldType === "array" ? "array" : "string",
+    defaultValue,
     disabled,
     readonly,
     validation,
@@ -77,18 +94,16 @@
 
   $: value = fieldState?.value;
   $: error = fieldState?.error;
-  $: _instances = value?.length ? value : [""];
+
+  $: cellValues.set(brain.enrichValue(value));
 
   $: $component.styles = {
     ...$component.styles,
     normal: {
       ...$component.styles.normal,
-      display:
-        invisible && !$builderStore.inBuilder
-          ? "none"
-          : $component.styles.normal.display,
       opacity: invisible && $builderStore.inBuilder ? 0.6 : 1,
       "grid-column": groupColumns ? `span ${span}` : "span 1",
+      ...(invisible && !$builderStore.inBuilder ? { display: "none" } : {}),
     },
   };
 
@@ -102,38 +117,229 @@
     role,
     icon,
     showDirty,
-    reorderOnly,
     clearIcon: false,
+    role: "inlineInput",
+    background: "var(--spectrum-global-color-gray-50)",
   };
+
+  $: draggableItems = $cellValues.map((item, index) => ({
+    id: `item-${index}`,
+    value: item,
+    index,
+  }));
+
+  const outputValue = derivedMemo(cellValues, ($cellValues) => {
+    return stringify
+      ? $cellValues.filter((x) => x).join(",")
+      : $cellValues.filter((x) => x);
+  });
+
+  export const state = fsm("view", {
+    view: {
+      focus: () => {
+        if (cellOptions?.readonly || cellOptions?.disabled) return "view";
+        return "edit";
+      },
+    },
+    edit: {
+      focusout: () => "view",
+    },
+  });
+
+  const brain = {
+    enrichValue: (val) => {
+      if (Array.isArray(val)) {
+        return val.length ? [...val.filter((x) => x)] : [""];
+      } else if (val) {
+        return [
+          ...val
+            .split(",")
+            .map((x) => x.trim())
+            .filter((x) => x),
+        ];
+      } else {
+        return [""];
+      }
+    },
+    handleChange: (e, index) => {
+      cellApi.forEach((api) => api?.clearError());
+
+      // Check for duplicates, excluding the current index
+      const isDuplicate = $cellValues.some(
+        (val, i) => i !== index && val === e.detail.toString() && val !== ""
+      );
+
+      if ($cellValues[index] !== e.detail && !isDuplicate) {
+        $cellValues[index] = e.detail.toString();
+      } else if (isDuplicate) {
+        cellApi[index]?.setError("Duplicate value");
+        cellApi[index]?.focus();
+      } else if (!e.detail) {
+        cellApi = cellApi.splice(index, 1);
+        $cellValues = $cellValues.splice(index, 1);
+      }
+
+      fieldApi?.setValue($outputValue);
+      onChange?.({ value: $outputValue });
+    },
+    validateInstances: (idx) => {
+      if (!inactive) return;
+
+      let filtered = $cellValues.filter((x) => x);
+      if (filtered.length === 0) filtered = [""];
+      cellValues.set([...filtered]);
+      cellApi.forEach((api, index) => {
+        if (api) api.clearError();
+      });
+    },
+    moveItem: (fromIndex, toIndex) => {
+      if (toIndex < 0 || toIndex >= $cellValues.length) return;
+      const item = $cellValues.splice(fromIndex, 1)[0];
+      $cellValues.splice(toIndex, 0, item);
+      $cellValues = [...$cellValues];
+
+      // Update focused row index if it was moved
+      if (focusedRowIndex === fromIndex) {
+        focusedRowIndex = toIndex;
+      } else if (
+        focusedRowIndex >= 0 &&
+        focusedRowIndex > fromIndex &&
+        focusedRowIndex <= toIndex
+      ) {
+        focusedRowIndex--; // Adjust if affected by move
+      }
+
+      cellApi[focusedRowIndex].focus();
+    },
+    updateRowOrder: (e) => {
+      focusedRowIndex = -1; // Use -1 instead of undefined for consistency
+      draggableItems = e.detail.items;
+    },
+    handleFinalize: (e) => {
+      inactive = true;
+      brain.updateRowOrder(e);
+      $cellValues = draggableItems.map((item) => item.value);
+    },
+    handleDragStart: () => {
+      inactive = false;
+      focusedRowIndex = -1; // Clear focus to fix drag issues when cell is focused
+    },
+    handleDragEnd: () => {
+      inactive = true;
+    },
+    handleRemove: (idx) => {
+      $cellValues.splice(idx, 1);
+      if ($cellValues.length === 0) {
+        $cellValues.push("");
+      }
+      $cellValues = [...$cellValues];
+
+      // Update focused row index
+      if (focusedRowIndex >= $cellValues.length) {
+        focusedRowIndex = $cellValues.length - 1;
+      } else if (focusedRowIndex > idx) {
+        focusedRowIndex--;
+      } else if (focusedRowIndex === idx) {
+        focusedRowIndex = -1;
+      }
+
+      fieldApi?.setValue($outputValue);
+      onChange?.({ value: $outputValue });
+    },
+    handleAdd: () => {
+      cellApi.forEach((api) => api?.clearError());
+
+      const lastValue = ($cellValues[$cellValues.length - 1] || "")
+        .toString()
+        .trim();
+      if (!lastValue) {
+        cellApi[$cellValues.length - 1]?.setError("Value cannot be empty");
+        cellApi[$cellValues.length - 1]?.focus();
+        return;
+      } else {
+        $cellValues = [...$cellValues, ""];
+        focusedRowIndex = $cellValues.length - 1;
+      }
+
+      // Check for duplicates before adding a new row
+      const isDuplicate = $cellValues
+        .slice(0, -1)
+        .some((val) => val.toString().trim() === lastValue);
+      if (isDuplicate) {
+        cellApi[$cellValues.length - 1]?.setError("Duplicate value");
+        cellApi[$cellValues.length - 1]?.focus();
+        return;
+      }
+    },
+    moveRowUp: (index) => {
+      if (index > 0 && reorder !== "disabled") {
+        const newIndex = index - 1;
+        brain.moveItem(index, newIndex);
+        focusedRowIndex = newIndex;
+      }
+    },
+    moveRowDown: (index) => {
+      if (index < $cellValues.length - 1 && reorder !== "disabled") {
+        const newIndex = index + 1;
+        brain.moveItem(index, newIndex);
+        focusedRowIndex = newIndex;
+      }
+    },
+    handleKeyDown: (event) => {
+      // Handle Enter key to add a row if the last row is focused and not empty
+      if (
+        event.key === "Enter" &&
+        focusedRowIndex === $cellValues.length - 1 &&
+        $cellValues[focusedRowIndex]?.trim()
+      ) {
+        event.preventDefault();
+        event.stopPropagation();
+        brain.handleAdd(); // Add a new row
+      }
+
+      // Only handle keyboard shortcuts when reordering is enabled
+      if (reorder === "disabled") return;
+
+      // Check for Cmd/Ctrl + Up/Down
+      if (
+        (event.metaKey || event.ctrlKey) &&
+        !event.shiftKey &&
+        !event.altKey
+      ) {
+        if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+          event.preventDefault();
+          event.stopPropagation();
+
+          if (event.key === "ArrowUp") {
+            brain.moveRowUp(focusedRowIndex);
+          } else if (event.key === "ArrowDown") {
+            brain.moveRowDown(focusedRowIndex);
+          }
+        }
+      }
+    },
+  };
+
+  onMount(() => {
+    setTimeout(() => {
+      mounted = true;
+    }, 150);
+  });
 
   onDestroy(() => {
     fieldApi?.deregister();
     unsubscribe?.();
   });
-
-  const handleChange = (e, index) => {
-    _instances[index] = e.detail;
-    _instances = _instances.filter((x) => x);
-
-    onChange?.({ value: _instances });
-    fieldApi?.setValue(_instances);
-
-    if (!_instances.length) _instances.push("");
-  };
-
-  const validateInstances = () => {
-    _instances = _instances.filter((x) => x);
-    if (!_instances.length) _instances.push("");
-  };
 </script>
 
 <!-- svelte-ignore a11y-click-events-have-key-events -->
 <!-- svelte-ignore a11y-no-noninteractive-tabindex -->
 <!-- svelte-ignore a11y-no-noninteractive-element-interactions -->
 <div use:styleable={$component.styles}>
-  <Provider data={{ value: _instances.filter((x) => x) }} />
+  <Provider data={{ value: $outputValue }} />
   <SuperField
-    multirow
+    multirow={true}
+    maxHeight={$component.styles.normal.height || "15rem"}
     {labelPos}
     {labelWidth}
     {field}
@@ -141,56 +347,308 @@
     {error}
     {helpText}
   >
-    <div class="cells">
-      {#each _instances as _, idx}
-        <div class="row">
-          <CellString
-            {cellOptions}
-            {fieldSchema}
-            value={_instances[idx]}
-            {autofocus}
-            on:change={(e) => handleChange(e, idx)}
-            on:focusout={validateInstances}
-          />
-          <span style="align-self: center">
-            <SuperButton
-              quiet
-              size="M"
-              disabled={readonly || disabled}
-              type={idx < _instances.length - 1 ? "warning" : "cta"}
-              icon={idx < _instances.length - 1
-                ? "ri-close-line"
-                : "ri-add-line"}
-              on:click={() => {
-                if (idx < _instances.length - 1) {
-                  _instances.splice(idx, 1);
-                  _instances = [..._instances];
-                  let validInstances = _instances.filter((x) => x);
-                  fieldApi?.setValue(validInstances);
-                } else if (_instances[idx]) {
-                  _instances = [..._instances, ""];
-                }
+    <div
+      bind:this={cell}
+      class="cell"
+      class:inEdit={$state == "edit"}
+      class:disabled={effectiveDisabled}
+      class:readonly={effectiveReadonly}
+      on:focusin={state.focus}
+      on:focusout={state.focusout}
+    >
+      {#if reorder !== "disabled" && !effectiveReadonly && !disabled}
+        <div
+          class="cells"
+          tabindex="-1"
+          use:dndzone={{
+            items: draggableItems,
+            dropTargetStyle: {
+              outline: "none",
+              border: "1px dashed var(--spectrum-global-color-blue-700)",
+            },
+            dragDisabled:
+              readonly || disabled || inactive || reorder === "disabled",
+            type: zoneType,
+            dropFromOthersDisabled: true,
+          }}
+          on:finalize={brain.handleFinalize}
+          on:consider={brain.updateRowOrder}
+        >
+          {#each draggableItems as draggableItem, idx (draggableItem.id)}
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <div
+              class="row"
+              tabindex={readonly || disabled ? -1 : 0}
+              class:focused={focusedRowIndex === idx}
+              on:focusin={() =>
+                (focusedRowIndex = readonly || disabled ? -1 : idx)}
+              on:focusout={(e) => {
+                if (!cell.contains(e.relatedTarget)) brain.validateInstances();
+                focusedRowIndex = -1;
               }}
-            />
-          </span>
+              on:keydown={brain.handleKeyDown}
+            >
+              {#if reorder === "handle" || reorder === "full"}
+                <!-- svelte-ignore a11y-interactive-supports-focus -->
+                <div
+                  class="drag-handle"
+                  class:readonly={readonly || disabled}
+                  style={inactive ? "cursor: grab" : "cursor: grabbing"}
+                  role="button"
+                  tabindex="-1"
+                  on:mousedown={brain.handleDragStart}
+                  on:mouseup={brain.handleDragEnd}
+                  on:mouseleave={brain.handleDragEnd}
+                >
+                  <i
+                    class={focusedRowIndex == idx
+                      ? "ph ph-pencil-simple"
+                      : "ph ph-dots-six-vertical"}
+                  ></i>
+                </div>
+              {/if}
+              <svelte:component
+                this={CellString}
+                bind:cellApi={cellApi[idx]}
+                {cellOptions}
+                {fieldSchema}
+                value={draggableItem.value}
+                autofocus={focusedRowIndex === idx}
+                on:change={(e) => brain.handleChange(e, idx)}
+              />
+              {#if !effectiveDisabled && !effectiveReadonly}
+                <div class="action-buttons">
+                  {#if reorder === "full"}
+                    <button
+                      class="action-button"
+                      disabled={readonly || disabled || idx === 0}
+                      on:click={() => brain.moveItem(idx, idx - 1)}
+                      aria-label="Move up"
+                    >
+                      <i class="ph ph-caret-up"></i>
+                    </button>
+                    <button
+                      class="action-button"
+                      disabled={readonly ||
+                        disabled ||
+                        idx === $cellValues.length - 1}
+                      on:click={() => brain.moveItem(idx, idx + 1)}
+                      aria-label="Move down"
+                    >
+                      <i class="ph ph-caret-down"></i>
+                    </button>
+                  {/if}
+                  <button
+                    class="action-button"
+                    class:delete={idx < $cellValues.length - 1}
+                    disabled={readonly || disabled}
+                    on:click={() => {
+                      if (idx < $cellValues.length - 1) {
+                        brain.handleRemove(idx);
+                      } else {
+                        brain.handleAdd();
+                      }
+                    }}
+                    aria-label={idx < $cellValues.length - 1 ? "Remove" : "Add"}
+                  >
+                    <i
+                      class={idx < $cellValues.length - 1
+                        ? "ph ph-trash-simple"
+                        : "ph ph-plus"}
+                    ></i>
+                  </button>
+                </div>
+              {/if}
+            </div>
+          {/each}
         </div>
-      {/each}
+      {:else}
+        <div class="cells" tabindex="-1">
+          {#each $cellValues as _, idx}
+            <!-- svelte-ignore a11y-no-static-element-interactions -->
+            <div
+              class="row"
+              class:focused={focusedRowIndex === idx}
+              on:keydown={brain.handleKeyDown}
+              on:focusin={() => (focusedRowIndex = idx)}
+              on:focusout={(e) => {
+                if (!cell.contains(e.relatedTarget)) brain.validateInstances();
+                focusedRowIndex = -1;
+              }}
+            >
+              <CellString
+                bind:cellApi={cellApi[idx]}
+                {cellOptions}
+                {fieldSchema}
+                value={$cellValues[idx]}
+                autofocus={focusedRowIndex === idx}
+                on:change={(e) => brain.handleChange(e, idx)}
+              />
+              {#if !effectiveReadonly && !effectiveDisabled}
+                <div class="action-buttons">
+                  <button
+                    class="action-button"
+                    disabled={readonly || disabled}
+                    on:click={() => {
+                      if (idx < $cellValues.length - 1) {
+                        brain.handleRemove(idx);
+                      } else {
+                        brain.handleAdd();
+                      }
+                    }}
+                    aria-label={idx < $cellValues.length - 1 ? "Remove" : "Add"}
+                  >
+                    <i
+                      class={idx < $cellValues.length - 1
+                        ? "ph ph-trash-simple"
+                        : "ph ph-plus"}
+                    ></i>
+                  </button>
+                </div>
+              {/if}
+            </div>
+          {/each}
+        </div>
+      {/if}
     </div>
   </SuperField>
 </div>
 
 <style>
-  .cells {
-    flex: auto;
+  .cell {
+    position: relative;
     display: flex;
     flex-direction: column;
     align-items: stretch;
+    gap: 0.25rem;
+    width: 100%;
+    height: 100%;
+    align-self: flex-start;
+    overflow: auto;
+    background-color: var(--spectrum-global-color-gray-50);
+    border: 1px solid var(--spectrum-global-color-gray-300);
+    border-radius: 2px;
+    min-height: 2rem;
+  }
+
+  .cell.inEdit {
+    border: 1px solid var(--spectrum-global-color-gray-300);
+  }
+
+  .cell.disabled {
+    background-color: var(--spectrum-global-color-gray-200);
+    border: 1px solid var(--spectrum-global-color-gray-200);
+  }
+
+  .cell.readonly {
+    border: 1px solid var(--spectrum-global-color-gray-200);
+  }
+
+  .cell:focus-within:not(.readonly):not(.disabled) {
+    border-color: var(--spectrum-global-color-blue-400);
+  }
+
+  .cell.readonly:focus-within {
+    border: 1px dashed var(--spectrum-global-color-blue-500) !important;
+  }
+
+  .cells {
+    display: flex;
+    flex-direction: column;
+    align-items: stretch;
+    overflow: auto;
   }
 
   .row {
-    flex: auto;
     display: flex;
     align-items: stretch;
-    gap: 8px;
+    user-select: none; /* Prevent text selection during drag */
+    border-bottom: 1px solid var(--spectrum-global-color-gray-300);
+    overflow: hidden;
+    min-height: 30px;
+
+    &.focused {
+      & > .drag-handle {
+        color: var(--spectrum-global-color-blue-400) !important;
+      }
+    }
+
+    &:focus {
+      outline: none;
+    }
+
+    &:last-child {
+      border-bottom: none;
+    }
+  }
+
+  .drag-handle {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 26px;
+    height: 30px;
+    cursor: grab;
+    color: var(--spectrum-global-color-gray-700);
+    transition: background-color 0.2s;
+    user-select: none; /* Prevent text selection */
+    border-right: 1px solid var(--spectrum-global-color-gray-100);
+    font-weight: 600;
+
+    &:hover:not(.readonly) {
+      color: var(--spectrum-global-color-gray-900);
+    }
+
+    &.readonly {
+      cursor: default;
+      opacity: 0.5;
+    }
+
+    &:active:not(.readonly) {
+      cursor: grabbing;
+      background-color: var(--spectrum-global-color-gray-200);
+    }
+  }
+
+  .action-buttons {
+    display: flex;
+    flex-direction: row;
+    gap: 4px;
+    align-items: center;
+    padding: 0rem 0.25rem;
+  }
+
+  .action-button {
+    all: unset;
+    cursor: pointer;
+    border-radius: 4px;
+    width: 24px;
+    height: 24px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: transparent;
+    color: var(--spectrum-global-color-gray-700);
+    font-size: 12px;
+    transition:
+      background-color 0.2s,
+      color 0.2s;
+
+    &:hover:not(:disabled) {
+      background-color: var(--spectrum-global-color-gray-100);
+      color: var(--spectrum-global-color-gray-900);
+    }
+
+    &:hover.delete {
+      color: var(--spectrum-global-color-red-600);
+    }
+    &:disabled {
+      cursor: not-allowed;
+      opacity: 0.5;
+    }
+
+    &:focus {
+      outline: 1px dashed var(--spectrum-global-color-blue-600);
+    }
   }
 </style>
